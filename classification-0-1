@@ -1,0 +1,62 @@
+import torch
+from torch.utils.data import DataLoader
+from torchvision import datasets, transforms
+import torch.nn as nn              # 对应 nn.BCEWithLogitsLoss
+import torch.optim as optim       # 对应 optim.SGD
+from torch.optim import lr_scheduler  # 对应 lr_scheduler.StepLR
+
+transform = transforms.Compose([
+    transforms.ToTensor(), # 将图像转换为张量
+    transforms.Normalize((0.5,), (0.5,)) # 标准化
+])
+train_dataset = datasets.MNIST(
+    root='./data', train=True, download=True, transform=transform
+)
+# 过滤数据集，只保留标签为0和1的样本
+train_dataset.data = train_dataset.data[(train_dataset.targets == 0) | (train_dataset.targets == 1)]
+train_dataset.targets = train_dataset.targets[(train_dataset.targets == 0) | (train_dataset.targets == 1)]
+train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True) # 创建数据加载器
+class LinearClassifier(nn.Module):
+    def __init__(self):
+        super(LinearClassifier, self).__init__()
+        self.linear = nn.Linear(28*28, 1) 
+        # 定义一个线性层，输入维度为28*28，输出维度为1
+        # 实际上建议将输入维度、输出维度都通过构造函数传入
+
+    def forward(self, x):
+        x = x.view(-1, 28*28) # 将输入图像展平为一维向量
+        x = self.linear(x) # 前向传播
+        return x
+
+model = LinearClassifier()
+criterion = nn.BCEWithLogitsLoss() 
+# 定义二元交叉熵损失函数，适用于线性输出
+optimizer = optim.SGD(model.parameters(), lr=0.01) 
+# 定义一个SGD优化器，学习率为0.01
+scheduler = lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1) 
+# 定义一个StepLR调度器，每10个epoch将学习率乘以0.1
+num_epochs = 20
+for epoch in range(num_epochs): # 训练20个epoch
+    model.train() # 设置模型为训练模式
+    for batch in train_loader:
+        inputs, targets = batch
+        targets = targets.float().unsqueeze(1) # 将目标转换为浮点数，并调整形状以匹配输出
+        optimizer.zero_grad() # 清零梯度
+        outputs = model(inputs) # 前向传播
+        loss = criterion(outputs, targets) # 计算损失
+        loss.backward() # 反向传播
+        optimizer.step() # 更新模型参数
+        scheduler.step() # 更新学习率
+print(f'Epoch {epoch+1}/{num_epochs}, Loss: {loss.item()}') # 输出相关信息
+model.eval() # 设置模型为评估模式
+correct = 0
+total = 0
+with torch.no_grad(): # 在评估模式下不计算梯度
+    for batch in train_loader:
+        inputs, targets = batch
+        targets = targets.float().unsqueeze(1)
+        outputs = model(inputs)
+        predicted = (outputs > 0).float() # 将输出转换为预测标签（0或1）
+        total += targets.size(0)    # 统计总样本数
+        correct += (predicted == targets).sum().item()# 正确的数量
+print(f'Accuracy: {100 * correct / total}%') # 输出相关指标
