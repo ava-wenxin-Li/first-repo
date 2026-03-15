@@ -1,0 +1,24 @@
+import torch
+# 输入张量 (Input tensor)
+x = torch.ones(5)
+# 期望的输出/标签 (Expected output)
+y = torch.zeros(3)
+# 权重矩阵，设置 requires_grad=True 表示需要计算梯度
+w = torch.randn(5, 3, requires_grad=True)
+# 偏置向量，同样需要计算梯度
+b = torch.randn(3, requires_grad=True)
+# 计算预测值 (线性变换: x * w + b)
+z = torch.matmul(x, w) + b
+# 计算二元交叉熵损失 (Binary Cross Entropy)
+# 注意：这个函数会自动处理 logits，不需要先做 sigmoid
+loss = torch.nn.functional.binary_cross_entropy_with_logits(z, y)
+# 打印结果看看
+print(f"Loss: {loss}")
+# 执行反向传播，计算梯度
+loss.backward()
+
+# 打印权重 w 的梯度
+print(w.grad)
+
+# 打印偏置 b 的梯度
+print(b.grad)
